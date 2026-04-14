@@ -2,17 +2,7 @@ name: Arduino CI
 
 on:
   push:
-    paths:
-      - 'src/**'
-      - 'examples/**'
-      - 'library.properties'
-      - '.github/workflows/**'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'examples/**'
-      - 'library.properties'
-      - '.github/workflows/**'
 
 jobs:
   lint:
@@ -36,6 +26,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: lint
+
+    # Only run build when:
+    # - Pull request (always)
+    # - Commit message contains [build]
+    if: >
+      github.event_name == 'pull_request' ||
+      contains(github.event.head_commit.message, '[build]')
 
     strategy:
       fail-fast: false
@@ -74,7 +71,6 @@ jobs:
       - name: Compile all examples
         run: |
           set -e
-
           for d in examples/*; do
             echo "::group::Compiling $d for ${{ matrix.fqbn }}"
             arduino-cli compile \
