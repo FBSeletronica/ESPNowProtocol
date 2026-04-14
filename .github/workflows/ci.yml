@@ -1,0 +1,107 @@
+name: Arduino CI
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'library.properties'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'library.properties'
+      - '.github/workflows/**'
+  release:
+    types: [created]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Arduino Lint
+        run: |
+          mkdir -p ~/bin
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-lint/main/etc/install.sh | BINDIR=~/bin sh
+
+      - name: Add Arduino Lint to PATH
+        run: echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Run Arduino Lint
+        run: arduino-lint --compliance strict --library-manager submit
+
+  build:
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        fqbn:
+          - esp32:esp32:esp32
+          - esp32:esp32:esp32c3
+          - esp32:esp32:esp32s2
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Arduino
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino
+          key: ${{ runner.os }}-arduino-${{ hashFiles('**/*.ino', '**/*.h', '**/*.cpp') }}
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Update index
+        run: arduino-cli core update-index
+
+      - name: Install ESP32 core
+        run: arduino-cli core install esp32:esp32
+
+      - name: Install current library
+        run: |
+          mkdir -p ~/Arduino/libraries
+          ln -s $GITHUB_WORKSPACE ~/Arduino/libraries/ESPNowProtocol
+
+      - name: Compile all examples
+        run: |
+          set -e
+          for d in examples/*; do
+            echo "::group::Compiling $d for ${{ matrix.fqbn }}"
+            arduino-cli compile \
+              --warnings all \
+              --fqbn ${{ matrix.fqbn }} \
+              "$d"
+            echo "::endgroup::"
+          done
+
+  release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create ZIP archive
+        run: |
+          zip -r ESPNowProtocol.zip . \
+            -x "*.git*" \
+               "build/*" \
+               ".github/*"
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ESPNowProtocol.zip
