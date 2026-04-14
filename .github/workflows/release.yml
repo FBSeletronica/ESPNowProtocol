@@ -1,9 +1,10 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Arduino CI"]
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -11,16 +12,19 @@ permissions:
 
 jobs:
   release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run Release Please
         id: release
         uses: googleapis/release-please-action@v4
         with:
           release-type: simple
 
-      # Only run if a release PR was created or updated
       - name: Update library.properties version
         if: steps.release.outputs.release_created == 'true'
         run: |
