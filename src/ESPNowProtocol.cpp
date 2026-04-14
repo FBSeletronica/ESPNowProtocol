@@ -53,6 +53,35 @@ const uint8_t* ESPNowProtocol::findPeerMac(uint8_t id)
 
 // --------------------------------------------------
 
+int8_t ESPNowProtocol::getPeerRSSI(uint8_t id)
+{
+  for (int i = 0; i < peerCount; i++)
+  {
+    if (peers[i].id == id)
+    {
+      return peers[i].rssi;
+    }
+  }
+  return 0;
+}
+
+// --------------------------------------------------
+
+uint8_t ESPNowProtocol::getLinkQuality(uint8_t id)
+{
+  int8_t rssi = getPeerRSSI(id);
+
+  if (rssi >= -50) return 100;
+  if (rssi >= -60) return 80;
+  if (rssi >= -70) return 60;
+  if (rssi >= -80) return 40;
+  if (rssi >= -90) return 20;
+
+  return 0;
+}
+
+// --------------------------------------------------
+
 void ESPNowProtocol::begin()
 {
   instance = this;
@@ -96,6 +125,7 @@ void ESPNowProtocol::addPeer(uint8_t id, const uint8_t *mac)
   memcpy(peers[peerCount].mac, mac, 6);
   peers[peerCount].lastSeen = millis();
   peers[peerCount].active = true;
+  peers[peerCount].rssi = 0;
 
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, mac, 6);
@@ -179,7 +209,7 @@ void ESPNowProtocol::loop()
     }
   }
 
-  // HELLO (auto discovery)
+  // HELLO
   if (autoDiscovery && millis() - lastHello > HELLO_INTERVAL)
   {
     enp_packet_t pkt = {};
@@ -209,7 +239,7 @@ void ESPNowProtocol::loop()
     lastHeartbeat = millis();
   }
 
-  // verificar peers offline
+  // timeout peers
   for (int i = 0; i < peerCount; i++)
   {
     if (peers[i].active && (millis() - peers[i].lastSeen > PEER_TIMEOUT))
@@ -292,11 +322,12 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
   enp_packet_t pkt;
   memcpy(&pkt, data, sizeof(pkt));
 
-  // filtro destino
+  int8_t rssi = info->rx_ctrl->rssi;
+
   if (pkt.dest != instance->nodeId && pkt.dest != 255)
     return;
 
-  // HELLO ou HEARTBEAT → atualizar peer
+  // HELLO / HEARTBEAT
   if (pkt.type == ENP_MSG_HELLO || pkt.type == ENP_MSG_HEARTBEAT)
   {
     if (pkt.src == instance->nodeId) return;
@@ -309,6 +340,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
       {
         instance->peers[i].lastSeen = millis();
         instance->peers[i].active = true;
+        instance->peers[i].rssi = rssi;
         found = true;
         break;
       }
@@ -320,6 +352,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
       memcpy(instance->peers[instance->peerCount].mac, info->src_addr, 6);
       instance->peers[instance->peerCount].lastSeen = millis();
       instance->peers[instance->peerCount].active = true;
+      instance->peers[instance->peerCount].rssi = rssi;
 
       esp_now_peer_info_t peerInfo = {};
       memcpy(peerInfo.peer_addr, info->src_addr, 6);
@@ -362,7 +395,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
   {
     if (instance->receiveCallback)
     {
-      instance->receiveCallback(pkt.src, pkt.id, pkt.payload, pkt.len);
+      instance->receiveCallback(pkt.src, pkt.id, pkt.payload, pkt.len, rssi);
     }
   }
 }
