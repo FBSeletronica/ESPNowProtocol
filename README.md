@@ -1,11 +1,17 @@
 # ESPNowProtocol
 
+## ⭐ Star this project
+
+If this library helped you, consider giving it a star!
+
 ![CI](https://github.com/FBSeletronica/ESPNowProtocol/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![GitHub release](https://img.shields.io/github/v/release/FBSeletronica/ESPNowProtocol)
 [![Arduino Library Manager](https://www.ardu-badge.com/badge/ESPNowProtocol.svg)](https://www.ardu-badge.com/ESPNowProtocol)
 
 ESPNowProtocol is a lightweight and scalable communication layer built on top of ESP-NOW for ESP32.
+
+🚀 Designed for reliable, scalable communication between multiple ESP32 devices using ESP-NOW.
 
 It provides a complete solution for device-to-device communication, including:
 - Generic payload messaging
@@ -18,7 +24,88 @@ It provides a complete solution for device-to-device communication, including:
 
 ---
 
-## Features
+## 🚀 Quick Start
+
+### 1. Install the Library
+
+Install via Arduino Library Manager:
+
+- Open Arduino IDE
+- Go to **Sketch → Include Library → Manage Libraries...**
+- Search for **ESPNowProtocol**
+- Click **Install**
+
+---
+
+### 2. Select Your Board
+
+- ESP32
+- ESP32-S2
+- ESP32-S3
+- ESP32-C3
+
+💡 Requires two boards (sender + receiver)
+
+---
+
+### 3. Upload Sender
+
+Open:
+
+```
+File → Examples → ESPNowProtocol → basic_sender
+```
+
+Upload to your first board.
+
+---
+
+### 4. Upload Receiver
+
+Open:
+
+```
+File → Examples → ESPNowProtocol → basic_receiver
+```
+
+Upload to another board.
+
+---
+
+### 5. Open Serial Monitor
+
+Set baud rate to:
+
+```
+115200
+```
+
+---
+
+### 6. Done!
+
+Your devices should now be communicating via ESP-NOW 🎉
+
+---
+
+💡 Tip: Start with `basic_sender` and `basic_receiver` before trying advanced features.
+
+---
+
+## 📦 Use Cases
+
+- Wireless sensor networks (ESP32 clusters)
+- Remote control systems (low latency)
+- IoT device communication
+- Real-time data exchange
+
+## 📡 How it works
+
+ESP32 (Sender) → ESP-NOW → ESP32 (Receiver)
+
+Low-latency, connectionless communication without Wi-Fi infrastructure.
+
+## ✨ Features
 
 - Generic payload (no fixed protocol)
 - Reliable communication with ACK and retry
@@ -34,11 +121,33 @@ It provides a complete solution for device-to-device communication, including:
 
 ---
 
+## Supported SoCs
+
+| SoC       | Status       |
+|----------|-------------|
+| ESP32     | ✅ Tested     |
+| ESP32-S2  | ✅ Tested     |
+| ESP32-C3  | ✅ Tested     |
+| ESP32-S3  | ⚠️ Untested   |
+| ESP32-C6  | ⚠️ Untested   |
+
+---
+
 ## Installation
 
-1. Copy the library to your Arduino libraries folder:  ~/Arduino/libraries/ESPNowProtocol
+### Arduino Library Manager (recommended)
 
+- Open Arduino IDE  
+- Go to **Sketch → Include Library → Manage Libraries...**  
+- Search for **ESPNowProtocol**  
+- Click **Install**
 
+---
+
+### Manual Installation (alternative)
+
+1. Copy the library to your Arduino libraries folder:  
+   ~/Arduino/libraries/ESPNowProtocol  
 2. Restart Arduino IDE
 
 ---
@@ -189,7 +298,7 @@ examples/
 - `network_monitor` → full diagnostics (RSSI + peers)
 
 ## Important Notes
-- `protocol.loop()` must run continuously
+- ⚠️ `protocol.loop()` must run continuously
 - Avoid long blocking delays
 - Maximum payload size: 32 bytes
 - Each device must have a unique nodeId
