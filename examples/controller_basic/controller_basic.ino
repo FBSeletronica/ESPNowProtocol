@@ -10,19 +10,15 @@ void setup()
 
   protocol.begin();
   protocol.setPeer(robotMAC);
-
-  Serial.println("Teste iniciado...");
 }
 
 void loop()
 {
   protocol.loop();
 
-  // envia frente
-  protocol.sendCommand(ENP_CMD_FORWARD, 150);
+  protocol.sendCommand(ENP_CMD_FORWARD, 100);
   delay(2000);
 
-  // para
   protocol.sendCommand(ENP_CMD_STOP, 0);
   delay(2000);
 }

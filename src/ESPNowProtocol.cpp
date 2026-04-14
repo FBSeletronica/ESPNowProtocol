@@ -1,11 +1,6 @@
 #include "ESPNowProtocol.h"
 
-// --------------------------------------------------
-// Instância global (necessária para callback estático)
-
 static ESPNowProtocol* instance = nullptr;
-
-// --------------------------------------------------
 
 void ESPNowProtocol::begin()
 {
@@ -15,27 +10,18 @@ void ESPNowProtocol::begin()
 
   if (esp_now_init() != ESP_OK)
   {
-    Serial.println("[ENP] Erro ao iniciar ESP-NOW");
+    Serial.println("[ENP] ESP-NOW init failed");
     return;
   }
 
   esp_now_register_recv_cb(ESPNowProtocol::onReceive);
 
-  Serial.println("[ENP] ESPNowProtocol iniciado");
+  Serial.println("[ENP] started");
 }
-
-// --------------------------------------------------
 
 void ESPNowProtocol::loop()
 {
-  // v0.2 → ainda não há lógica
-  // futuro:
-  // - retry
-  // - timeout
-  // - status
 }
-
-// --------------------------------------------------
 
 void ESPNowProtocol::setPeer(const uint8_t *mac)
 {
@@ -50,21 +36,11 @@ void ESPNowProtocol::setPeer(const uint8_t *mac)
   {
     if (esp_now_add_peer(&peerInfo) != ESP_OK)
     {
-      Serial.println("[ENP] Erro ao adicionar peer");
+      Serial.println("[ENP] peer add failed");
       return;
     }
   }
-
-  Serial.print("[ENP] Peer configurado: ");
-  for (int i = 0; i < 6; i++)
-  {
-    Serial.print(peerAddress[i], HEX);
-    if (i < 5) Serial.print(":");
-  }
-  Serial.println();
 }
-
-// --------------------------------------------------
 
 void ESPNowProtocol::sendCommand(uint8_t cmd, int32_t value)
 {
@@ -75,23 +51,13 @@ void ESPNowProtocol::sendCommand(uint8_t cmd, int32_t value)
   msg.value = value;
   msg.seq = seqCounter++;
 
-  esp_err_t result = esp_now_send(peerAddress, (uint8_t *)&msg, sizeof(msg));
-
-  Serial.print("[ENP TX] CMD: ");
-  Serial.print(cmd);
-  Serial.print(" | VAL: ");
-  Serial.print(value);
-  Serial.print(" | SEQ: ");
-  Serial.print(msg.seq);
-
-  if (result == ESP_OK)
-    Serial.println(" | OK");
-  else
-    Serial.println(" | ERRO");
+  esp_now_send(peerAddress, (uint8_t *)&msg, sizeof(msg));
 }
 
-// --------------------------------------------------
-// CALLBACK RECEPÇÃO
+void ESPNowProtocol::onCommand(enp_command_cb_t cb)
+{
+  commandCallback = cb;
+}
 
 void ESPNowProtocol::onReceive(const esp_now_recv_info_t *info, const uint8_t *data, int len)
 {
@@ -101,15 +67,11 @@ void ESPNowProtocol::onReceive(const esp_now_recv_info_t *info, const uint8_t *d
   enp_message_t msg;
   memcpy(&msg, data, sizeof(msg));
 
-  Serial.print("[ENP RX] TYPE: ");
-  Serial.print(msg.type);
-  Serial.print(" | CMD: ");
-  Serial.print(msg.command);
-  Serial.print(" | VAL: ");
-  Serial.print(msg.value);
-  Serial.print(" | SEQ: ");
-  Serial.println(msg.seq);
-
-  // v0.2 → apenas debug
-  // v0.3 → callback real (onCommand)
+  if (instance && instance->commandCallback)
+  {
+    if (msg.type == ENP_MSG_CMD)
+    {
+      instance->commandCallback(msg.command, msg.value);
+    }
+  }
 }
