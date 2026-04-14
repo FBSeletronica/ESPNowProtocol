@@ -1,8 +1,20 @@
+/*
+ * ESPNowProtocol.cpp
+ *
+ * Implementation of a lightweight ESP-NOW communication layer for ESP32.
+ * This module handles peer tracking, broadcast discovery, ACK-based retries,
+ * packet queueing, and delivery of received payloads to the user callback.
+ *
+ * Author: Fabio Souza
+ * License: MIT
+ */
+
 #include "ESPNowProtocol.h"
 
+// Single active instance used by the static ESP-NOW receive callback.
 static ESPNowProtocol* instance = nullptr;
 
-// broadcast MAC
+// ESP-NOW broadcast address used for discovery and heartbeat frames.
 static const uint8_t broadcastMac[] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
 
 // --------------------------------------------------
@@ -14,6 +26,7 @@ bool ESPNowProtocol::isQueueEmpty()
 
 void ESPNowProtocol::pushQueue(const enp_packet_t &pkt)
 {
+  // Overwrite the oldest entry when the queue is already full.
   queue[queueHead] = pkt;
 
   if (queueFull)
@@ -94,7 +107,7 @@ void ESPNowProtocol::begin()
     return;
   }
 
-  // register broadcast peer
+  // Register the broadcast peer once so broadcast transmissions are allowed.
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, broadcastMac, 6);
   peerInfo.channel = 0;
@@ -149,7 +162,7 @@ void ESPNowProtocol::enableAutoDiscovery(bool enable)
 
 void ESPNowProtocol::loop()
 {
-  // envio da fila
+  // Send the next queued reliable packet when no ACK is pending.
   if (!waitingAck)
   {
     enp_packet_t pkt;
@@ -178,7 +191,7 @@ void ESPNowProtocol::loop()
     }
   }
 
-  // retry
+  // Retry the last reliable packet if the ACK timeout elapsed.
   if (waitingAck)
   {
     if (millis() - ackStartTime > ACK_TIMEOUT)
@@ -209,7 +222,7 @@ void ESPNowProtocol::loop()
     }
   }
 
-  // HELLO
+  // Periodically announce this node so other devices can auto-discover it.
   if (autoDiscovery && millis() - lastHello > HELLO_INTERVAL)
   {
     enp_packet_t pkt = {};
@@ -224,7 +237,7 @@ void ESPNowProtocol::loop()
     lastHello = millis();
   }
 
-  // HEARTBEAT
+  // Broadcast a heartbeat to keep peer liveness information fresh.
   if (millis() - lastHeartbeat > HEARTBEAT_INTERVAL)
   {
     enp_packet_t pkt = {};
@@ -239,7 +252,7 @@ void ESPNowProtocol::loop()
     lastHeartbeat = millis();
   }
 
-  // timeout peers
+  // Mark peers as offline if no HELLO/HEARTBEAT was seen recently.
   for (int i = 0; i < peerCount; i++)
   {
     if (peers[i].active && (millis() - peers[i].lastSeen > PEER_TIMEOUT))
@@ -316,6 +329,7 @@ void ESPNowProtocol::onReceive(enp_receive_cb_t cb)
 
 void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const uint8_t *data, int len)
 {
+  // Ignore truncated packets and callback invocations before begin().
   if (len < sizeof(enp_packet_t)) return;
   if (!instance) return;
 
@@ -324,10 +338,11 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
 
   int8_t rssi = info->rx_ctrl->rssi;
 
+  // Only process packets addressed to this node or to the broadcast address.
   if (pkt.dest != instance->nodeId && pkt.dest != 255)
     return;
 
-  // HELLO / HEARTBEAT
+  // HELLO and HEARTBEAT frames update or create peer state entries.
   if (pkt.type == ENP_MSG_HELLO || pkt.type == ENP_MSG_HEARTBEAT)
   {
     if (pkt.src == instance->nodeId) return;
@@ -365,7 +380,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     }
   }
 
-  // ACK
+  // Every data packet is acknowledged with the received sequence number.
   if (pkt.type == ENP_MSG_DATA)
   {
     enp_packet_t ack = {};
@@ -378,7 +393,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     esp_now_send(info->src_addr, (uint8_t *)&ack, sizeof(ack));
   }
 
-  // ACK recebido
+  // Clear the retry state when the expected ACK arrives.
   if (pkt.type == ENP_MSG_ACK)
   {
     if (instance->waitingAck)
@@ -390,7 +405,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     }
   }
 
-  // callback
+  // Forward application payloads to the registered user callback.
   if (pkt.type == ENP_MSG_DATA)
   {
     if (instance->receiveCallback)
