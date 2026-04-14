@@ -2,6 +2,8 @@
 
 ![CI](https://github.com/FBSeletronica/ESPNowProtocol/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![GitHub release](https://img.shields.io/github/v/release/FBSeletronica/ESPNowProtocol)
+[![Arduino Library Manager](https://www.ardu-badge.com/badge/ESPNowProtocol.svg)](https://www.ardu-badge.com/ESPNowProtocol)
 
 ESPNowProtocol is a lightweight and scalable communication layer built on top of ESP-NOW for ESP32.
 
