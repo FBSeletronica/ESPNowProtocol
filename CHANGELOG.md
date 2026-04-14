@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/FBSeletronica/ESPNowProtocol/compare/v1.2.0...v1.3.0) (2026-04-14)
+
+
+### Features
+
+* automate version update in library.properties on release ([79bab2c](https://github.com/FBSeletronica/ESPNowProtocol/commit/79bab2c672672bb6eea62964532b615c9ad61147))
+* update release workflow to trigger on completion of Arduino CI ([2a2a1a9](https://github.com/FBSeletronica/ESPNowProtocol/commit/2a2a1a9355d972d11b70c95c24465eabbf21a82e))
+
 ## [1.2.0](https://github.com/FBSeletronica/ESPNowProtocol/compare/v1.1.0...v1.2.0) (2026-04-14)
 
 
