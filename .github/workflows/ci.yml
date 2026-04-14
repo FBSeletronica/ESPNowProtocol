@@ -27,12 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
 
-    # Only run build when:
+    # Build runs only when:
     # - Pull request (always)
-    # - Commit message contains [build]
+    # - Commit message contains [build] or [ci]
     if: >
       github.event_name == 'pull_request' ||
-      contains(github.event.head_commit.message, '[build]')
+      contains(github.event.head_commit.message, '[build]') ||
+      contains(github.event.head_commit.message, '[ci]')
 
     strategy:
       fail-fast: false
