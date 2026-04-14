@@ -207,82 +207,125 @@ protocol.sendReliable(2, 1, (uint8_t*)&cmd, sizeof(cmd));
 
 ## Version
 
-Current version: v1.1.0
-
-## Commit Convention
-
-This project follows the **Conventional Commits** specification to enable automatic versioning and changelog generation.
-
-### Format
-
-```
-<type>: <short description>
-```
-
-### Common Types
-
-* **feat**: A new feature (triggers a minor version bump)
-* **fix**: A bug fix (triggers a patch version bump)
-* **docs**: Documentation changes only
-* **style**: Code style changes (formatting, no logic changes)
-* **refactor**: Code changes that neither fix a bug nor add a feature
-* **perf**: Performance improvements
-* **test**: Adding or updating tests
-* **chore**: Maintenance tasks (build system, CI, etc.)
-
----
-
-### Examples
-
-```
-feat: add ESP-NOW auto discovery
-fix: correct peer initialization bug
-docs: update README with usage instructions
-refactor: simplify packet handling logic
-```
-
----
-
-### Breaking Changes
-
-To introduce a breaking change, add `!` after the type or include a `BREAKING CHANGE` section:
-
-```
-feat!: change API for message handling
-```
-
-or
-
-```
-feat: update communication protocol
-
-BREAKING CHANGE: message format has changed
-```
-
----
-
-### Why this matters
-
-Using this convention allows:
-
-* Automatic versioning (SemVer)
-* Automatic changelog generation
-* Consistent and readable commit history
-
----
-
-### Tips
-
-* Keep commits small and focused
-* Use the imperative mood ("add", not "added")
-* Write clear and concise descriptions
-
+Current version: v1.2.0
 
 ## Roadmap
 - Peer event callbacks (online/offline)
 - Link metrics (packet loss, latency)
 - Automatic best-peer selection
 - Mesh routing (multi-hop)
+
+
+## Contributing
+
+Contributions are welcome! This project follows a structured workflow to ensure code quality and consistency.
+
+---
+
+### Workflow Overview
+
+1. Fork the repository
+2. Create a new branch from `main`
+3. Make your changes
+4. Open a Pull Request
+
+---
+
+### Development Setup
+
+1. Clone your fork:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/ESPNowProtocol.git
+cd ESPNowProtocol
+```
+
+2. Install dependencies (if needed) and ensure you have:
+
+* Arduino CLI installed
+* ESP32 core installed
+
+---
+
+### Testing
+
+Before submitting a Pull Request:
+
+* Ensure all examples compile successfully
+* Run Arduino Lint:
+
+```bash
+arduino-lint --compliance strict --library-manager submit
+```
+
+* Optionally run builds manually:
+
+```bash
+arduino-cli compile --fqbn esp32:esp32:esp32 examples/basic_sender
+```
+
+---
+
+### CI Behavior
+
+* Lint runs on every commit
+* Build runs:
+
+  * Always on Pull Requests
+  * On commits containing `[build]`
+
+If you want to force a full build:
+
+```bash
+git commit -m "feat: improve protocol handling [build]"
+```
+
+---
+
+### Commit Convention
+
+This project uses **Conventional Commits**:
+
+```text
+feat: add new feature
+fix: resolve bug
+docs: update documentation
+```
+
+This enables:
+
+* Automatic versioning
+* Automatic changelog generation
+
+---
+
+### Pull Request Guidelines
+
+* Keep PRs small and focused
+* Do not include unrelated changes
+* Ensure CI passes before requesting review
+* Update documentation if needed
+
+---
+
+### Releases
+
+Releases are fully automated:
+
+* Created after CI passes on `main`
+* Version and changelog are generated automatically
+* `library.properties` is updated automatically
+
+---
+
+### Questions
+
+If you are unsure about anything, feel free to open an issue or discussion.
+
+---
+
+Thank you for contributing!
+
 
 ## License
 
