@@ -2,35 +2,12 @@
 
 ESPNowProtocol protocol;
 
+unsigned long lastStatus = 0;
+
 void handleCommand(uint8_t cmd, int32_t value)
 {
   Serial.print("CMD: ");
-  Serial.print(cmd);
-  Serial.print(" | VAL: ");
-  Serial.println(value);
-
-  switch (cmd)
-  {
-    case ENP_CMD_FORWARD:
-      Serial.println("Forward");
-      break;
-
-    case ENP_CMD_BACKWARD:
-      Serial.println("Backward");
-      break;
-
-    case ENP_CMD_LEFT:
-      Serial.println("Left");
-      break;
-
-    case ENP_CMD_RIGHT:
-      Serial.println("Right");
-      break;
-
-    case ENP_CMD_STOP:
-      Serial.println("Stop");
-      break;
-  }
+  Serial.println(cmd);
 }
 
 void setup()
@@ -40,10 +17,19 @@ void setup()
   protocol.begin();
   protocol.onCommand(handleCommand);
 
-  Serial.println("Robot ready (ACK enabled)");
+  Serial.println("Robot ready");
 }
 
 void loop()
 {
   protocol.loop();
+
+  if (millis() - lastStatus > 1000)
+  {
+    int fakeRSSI = random(-90, -30);
+
+    protocol.sendStatus(fakeRSSI);
+
+    lastStatus = millis();
+  }
 }

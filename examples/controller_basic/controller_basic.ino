@@ -4,12 +4,20 @@ ESPNowProtocol protocol;
 
 uint8_t robotMAC[] = {0x10,0x52,0x1C,0x68,0x15,0x28};
 
+void handleStatus(int32_t value)
+{
+  Serial.print("STATUS received: ");
+  Serial.println(value);
+}
+
 void setup()
 {
   Serial.begin(115200);
 
   protocol.begin();
   protocol.setPeer(robotMAC);
+
+  protocol.onStatus(handleStatus);
 
   Serial.println("Controller ready");
 }
