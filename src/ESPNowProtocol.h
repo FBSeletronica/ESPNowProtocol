@@ -6,8 +6,7 @@
 
 #include "ESPNowTypes.h"
 
-typedef void (*enp_command_cb_t)(uint8_t cmd, int32_t value);
-typedef void (*enp_status_cb_t)(int32_t value);
+typedef void (*enp_receive_cb_t)(uint8_t id, const uint8_t *data, uint8_t len);
 
 class ESPNowProtocol {
 public:
@@ -16,30 +15,40 @@ public:
 
   void setPeer(const uint8_t *mac);
 
-  void sendCommand(uint8_t cmd, int32_t value);
-  void sendReliable(uint8_t cmd, int32_t value);
+  void send(uint8_t id, const uint8_t *data, uint8_t len);
+  void sendReliable(uint8_t id, const uint8_t *data, uint8_t len);
 
-  void sendStatus(int32_t value);
-
-  void onCommand(enp_command_cb_t cb);
-  void onStatus(enp_status_cb_t cb);
+  void onReceive(enp_receive_cb_t cb);
 
 private:
-  static void onReceive(const esp_now_recv_info_t *info, const uint8_t *data, int len);
+  static void onReceiveInternal(const esp_now_recv_info_t *info, const uint8_t *data, int len);
 
   uint8_t peerAddress[6] = {0};
   uint8_t seqCounter = 0;
 
-  enp_command_cb_t commandCallback = nullptr;
-  enp_status_cb_t statusCallback = nullptr;
+  enp_receive_cb_t receiveCallback = nullptr;
 
   bool waitingAck = false;
   uint8_t pendingSeq = 0;
   unsigned long ackStartTime = 0;
   uint8_t retryCount = 0;
 
-  enp_message_t lastMsg;
+  enp_packet_t lastPacket;
 
   static const uint8_t MAX_RETRIES = 3;
   static const uint16_t ACK_TIMEOUT = 100;
+
+  static const uint8_t QUEUE_SIZE = 5;
+
+  enp_packet_t queue[QUEUE_SIZE];
+
+  uint8_t queueHead = 0;
+  uint8_t queueTail = 0;
+  bool queueFull = false;
+
+  bool isQueueEmpty();
+  bool isQueueFull();
+
+  void pushQueue(const enp_packet_t &pkt);
+  bool popQueue(enp_packet_t &pkt);
 };

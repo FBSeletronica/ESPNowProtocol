@@ -1,177 +1,211 @@
 #include "ESPNowProtocol.h"
 
-static ESPNowProtocol *instance = nullptr;
+static ESPNowProtocol* instance = nullptr;
+
+// --------------------------------------------------
+
+bool ESPNowProtocol::isQueueEmpty()
+{
+  return (!queueFull && (queueHead == queueTail));
+}
+
+bool ESPNowProtocol::isQueueFull()
+{
+  return queueFull;
+}
+
+void ESPNowProtocol::pushQueue(const enp_packet_t &pkt)
+{
+  queue[queueHead] = pkt;
+
+  if (queueFull)
+  {
+    queueTail = (queueTail + 1) % QUEUE_SIZE;
+  }
+
+  queueHead = (queueHead + 1) % QUEUE_SIZE;
+  queueFull = (queueHead == queueTail);
+}
+
+bool ESPNowProtocol::popQueue(enp_packet_t &pkt)
+{
+  if (isQueueEmpty()) return false;
+
+  pkt = queue[queueTail];
+  queueFull = false;
+
+  queueTail = (queueTail + 1) % QUEUE_SIZE;
+
+  return true;
+}
+
+// --------------------------------------------------
 
 void ESPNowProtocol::begin()
 {
-    instance = this;
+  instance = this;
 
-    WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_STA);
 
-    if (esp_now_init() != ESP_OK)
-    {
-        Serial.println("[ENP] ESP-NOW init failed");
-        return;
-    }
+  if (esp_now_init() != ESP_OK)
+  {
+    Serial.println("[ENP] init failed");
+    return;
+  }
 
-    esp_now_register_recv_cb(ESPNowProtocol::onReceive);
-
-    Serial.println("[ENP] started");
+  esp_now_register_recv_cb(ESPNowProtocol::onReceiveInternal);
 }
+
+// --------------------------------------------------
 
 void ESPNowProtocol::loop()
 {
-    if (waitingAck)
+  // envia próximo pacote da fila
+  if (!waitingAck)
+  {
+    enp_packet_t pkt;
+
+    if (popQueue(pkt))
     {
-        if (millis() - ackStartTime > ACK_TIMEOUT)
-        {
-            if (retryCount < MAX_RETRIES)
-            {
-                retryCount++;
+      lastPacket = pkt;
 
-                esp_now_send(peerAddress, (uint8_t *)&lastMsg, sizeof(lastMsg));
+      esp_now_send(peerAddress, (uint8_t *)&lastPacket, sizeof(lastPacket));
 
-                ackStartTime = millis();
-            }
-            else
-            {
-                waitingAck = false;
-            }
-        }
+      pendingSeq = lastPacket.seq;
+      waitingAck = true;
+      retryCount = 0;
+      ackStartTime = millis();
     }
+  }
+
+  // retry
+  if (waitingAck)
+  {
+    if (millis() - ackStartTime > ACK_TIMEOUT)
+    {
+      if (retryCount < MAX_RETRIES)
+      {
+        retryCount++;
+
+        esp_now_send(peerAddress, (uint8_t *)&lastPacket, sizeof(lastPacket));
+        ackStartTime = millis();
+      }
+      else
+      {
+        waitingAck = false;
+      }
+    }
+  }
 }
+
+// --------------------------------------------------
 
 void ESPNowProtocol::setPeer(const uint8_t *mac)
 {
-    memcpy(peerAddress, mac, 6);
+  memcpy(peerAddress, mac, 6);
 
-    esp_now_peer_info_t peerInfo = {};
-    memcpy(peerInfo.peer_addr, mac, 6);
-    peerInfo.channel = 0;
-    peerInfo.encrypt = false;
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, mac, 6);
 
-    if (!esp_now_is_peer_exist(mac))
-    {
-        if (esp_now_add_peer(&peerInfo) != ESP_OK)
-        {
-            Serial.println("[ENP] peer add failed");
-            return;
-        }
-    }
+  if (!esp_now_is_peer_exist(mac))
+  {
+    esp_now_add_peer(&peerInfo);
+  }
 }
 
-void ESPNowProtocol::sendCommand(uint8_t cmd, int32_t value)
+// --------------------------------------------------
+
+void ESPNowProtocol::send(uint8_t id, const uint8_t *data, uint8_t len)
 {
-    enp_message_t msg;
+  if (len > ENP_MAX_PAYLOAD) return;
 
-    msg.type = ENP_MSG_CMD;
-    msg.command = cmd;
-    msg.value = value;
-    msg.seq = seqCounter++;
+  enp_packet_t pkt = {};
 
-    esp_now_send(peerAddress, (uint8_t *)&msg, sizeof(msg));
+  pkt.type = ENP_MSG_DATA;
+  pkt.id = id;
+  pkt.len = len;
+  memcpy(pkt.payload, data, len);
+  pkt.seq = seqCounter++;
+
+  esp_now_send(peerAddress, (uint8_t *)&pkt, sizeof(pkt));
 }
 
-void ESPNowProtocol::sendReliable(uint8_t cmd, int32_t value)
+// --------------------------------------------------
+
+void ESPNowProtocol::sendReliable(uint8_t id, const uint8_t *data, uint8_t len)
 {
-    if (waitingAck)
-        return;
+  if (len > ENP_MAX_PAYLOAD) return;
 
-    lastMsg.type = ENP_MSG_CMD;
-    lastMsg.command = cmd;
-    lastMsg.value = value;
-    lastMsg.seq = seqCounter++;
+  enp_packet_t pkt = {};
 
-    esp_now_send(peerAddress, (uint8_t *)&lastMsg, sizeof(lastMsg));
+  pkt.type = ENP_MSG_DATA;
+  pkt.id = id;
+  pkt.len = len;
+  memcpy(pkt.payload, data, len);
+  pkt.seq = seqCounter++;
 
-    pendingSeq = lastMsg.seq;
-    waitingAck = true;
-    retryCount = 0;
-    ackStartTime = millis();
+  pushQueue(pkt);
 }
 
-void ESPNowProtocol::sendStatus(int32_t value)
+// --------------------------------------------------
+
+void ESPNowProtocol::onReceive(enp_receive_cb_t cb)
 {
-    enp_message_t msg;
-
-    msg.type = ENP_MSG_STATUS;
-    msg.command = 0;
-    msg.value = value;
-    msg.seq = 0;
-
-    esp_now_send(peerAddress, (uint8_t *)&msg, sizeof(msg));
+  receiveCallback = cb;
 }
 
-void ESPNowProtocol::onCommand(enp_command_cb_t cb)
+// --------------------------------------------------
+
+void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const uint8_t *data, int len)
 {
-    commandCallback = cb;
-}
+  if (len < sizeof(enp_packet_t)) return;
 
-void ESPNowProtocol::onStatus(enp_status_cb_t cb)
-{
-    statusCallback = cb;
-}
+  if (instance)
+  {
+    memcpy(instance->peerAddress, info->src_addr, 6);
 
-
-void ESPNowProtocol::onReceive(const esp_now_recv_info_t *info, const uint8_t *data, int len)
-{
-    if (len < sizeof(enp_message_t))
-        return;
-
-    if (instance)
+    if (!esp_now_is_peer_exist(info->src_addr))
     {
-        memcpy(instance->peerAddress, info->src_addr, 6);
-
-        if (!esp_now_is_peer_exist(info->src_addr))
-        {
-            esp_now_peer_info_t peerInfo = {};
-            memcpy(peerInfo.peer_addr, info->src_addr, 6);
-            peerInfo.channel = 0;
-            peerInfo.encrypt = false;
-
-            esp_now_add_peer(&peerInfo);
-        }
+      esp_now_peer_info_t peerInfo = {};
+      memcpy(peerInfo.peer_addr, info->src_addr, 6);
+      esp_now_add_peer(&peerInfo);
     }
+  }
 
-    enp_message_t msg;
-    memcpy(&msg, data, sizeof(msg));
+  enp_packet_t pkt;
+  memcpy(&pkt, data, sizeof(pkt));
 
-    if (msg.type == ENP_MSG_CMD)
+  // ACK automático
+  if (pkt.type == ENP_MSG_DATA)
+  {
+    enp_packet_t ack = {};
+
+    ack.type = ENP_MSG_ACK;
+    ack.id = 0;
+    ack.len = 0;
+    ack.seq = pkt.seq;
+
+    esp_now_send(info->src_addr, (uint8_t *)&ack, sizeof(ack));
+  }
+
+  // Recebe ACK
+  if (pkt.type == ENP_MSG_ACK)
+  {
+    if (instance && instance->waitingAck)
     {
-        enp_message_t ack;
-
-        ack.type = ENP_MSG_ACK;
-        ack.command = 0;
-        ack.value = 0;
-        ack.seq = msg.seq;
-
-        esp_now_send(info->src_addr, (uint8_t *)&ack, sizeof(ack));
+      if (pkt.seq == instance->pendingSeq)
+      {
+        instance->waitingAck = false;
+      }
     }
+  }
 
-    if (msg.type == ENP_MSG_ACK)
+  // Callback de dados
+  if (pkt.type == ENP_MSG_DATA)
+  {
+    if (instance && instance->receiveCallback)
     {
-        if (instance && instance->waitingAck)
-        {
-            if (msg.seq == instance->pendingSeq)
-            {
-                instance->waitingAck = false;
-            }
-        }
+      instance->receiveCallback(pkt.id, pkt.payload, pkt.len);
     }
-
-    if (msg.type == ENP_MSG_STATUS)
-    {
-        if (instance && instance->statusCallback)
-        {
-            instance->statusCallback(msg.value);
-        }
-    }
-
-    if (msg.type == ENP_MSG_CMD)
-    {
-        if (instance && instance->commandCallback)
-        {
-            instance->commandCallback(msg.command, msg.value);
-        }
-    }
+  }
 }
