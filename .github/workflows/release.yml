@@ -11,6 +11,6 @@ jobs:
 
     steps:
       - name: Run Release Please
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
-          config-file: release-please-config.json
+          release-type: simple
