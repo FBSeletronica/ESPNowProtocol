@@ -2,9 +2,10 @@
 
 #include <Arduino.h>
 
-#define ENP_MSG_DATA 1
-#define ENP_MSG_ACK  2
-#define ENP_MSG_HELLO  3
+#define ENP_MSG_DATA      1
+#define ENP_MSG_ACK       2
+#define ENP_MSG_HELLO     3
+#define ENP_MSG_HEARTBEAT 4
 
 #define ENP_MAX_PAYLOAD 32
 

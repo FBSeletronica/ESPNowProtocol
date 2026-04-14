@@ -43,7 +43,7 @@ const uint8_t* ESPNowProtocol::findPeerMac(uint8_t id)
 {
   for (int i = 0; i < peerCount; i++)
   {
-    if (peers[i].id == id)
+    if (peers[i].id == id && peers[i].active)
     {
       return peers[i].mac;
     }
@@ -94,6 +94,8 @@ void ESPNowProtocol::addPeer(uint8_t id, const uint8_t *mac)
 
   peers[peerCount].id = id;
   memcpy(peers[peerCount].mac, mac, 6);
+  peers[peerCount].lastSeen = millis();
+  peers[peerCount].active = true;
 
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, mac, 6);
@@ -177,21 +179,45 @@ void ESPNowProtocol::loop()
     }
   }
 
-  // HELLO broadcast
-  if (autoDiscovery)
+  // HELLO (auto discovery)
+  if (autoDiscovery && millis() - lastHello > HELLO_INTERVAL)
   {
-    if (millis() - lastHello > HELLO_INTERVAL)
+    enp_packet_t pkt = {};
+
+    pkt.type = ENP_MSG_HELLO;
+    pkt.src  = nodeId;
+    pkt.dest = 255;
+    pkt.seq  = seqCounter++;
+
+    esp_now_send(broadcastMac, (uint8_t *)&pkt, sizeof(pkt));
+
+    lastHello = millis();
+  }
+
+  // HEARTBEAT
+  if (millis() - lastHeartbeat > HEARTBEAT_INTERVAL)
+  {
+    enp_packet_t pkt = {};
+
+    pkt.type = ENP_MSG_HEARTBEAT;
+    pkt.src  = nodeId;
+    pkt.dest = 255;
+    pkt.seq  = seqCounter++;
+
+    esp_now_send(broadcastMac, (uint8_t *)&pkt, sizeof(pkt));
+
+    lastHeartbeat = millis();
+  }
+
+  // verificar peers offline
+  for (int i = 0; i < peerCount; i++)
+  {
+    if (peers[i].active && (millis() - peers[i].lastSeen > PEER_TIMEOUT))
     {
-      enp_packet_t pkt = {};
+      peers[i].active = false;
 
-      pkt.type = ENP_MSG_HELLO;
-      pkt.src  = nodeId;
-      pkt.dest = 255;
-      pkt.seq  = seqCounter++;
-
-      esp_now_send(broadcastMac, (uint8_t *)&pkt, sizeof(pkt));
-
-      lastHello = millis();
+      Serial.print("[ENP] Peer offline: ");
+      Serial.println(peers[i].id);
     }
   }
 }
@@ -270,8 +296,8 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
   if (pkt.dest != instance->nodeId && pkt.dest != 255)
     return;
 
-  // HELLO → auto discovery
-  if (pkt.type == ENP_MSG_HELLO)
+  // HELLO ou HEARTBEAT → atualizar peer
+  if (pkt.type == ENP_MSG_HELLO || pkt.type == ENP_MSG_HEARTBEAT)
   {
     if (pkt.src == instance->nodeId) return;
 
@@ -281,6 +307,8 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     {
       if (instance->peers[i].id == pkt.src)
       {
+        instance->peers[i].lastSeen = millis();
+        instance->peers[i].active = true;
         found = true;
         break;
       }
@@ -290,6 +318,8 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     {
       instance->peers[instance->peerCount].id = pkt.src;
       memcpy(instance->peers[instance->peerCount].mac, info->src_addr, 6);
+      instance->peers[instance->peerCount].lastSeen = millis();
+      instance->peers[instance->peerCount].active = true;
 
       esp_now_peer_info_t peerInfo = {};
       memcpy(peerInfo.peer_addr, info->src_addr, 6);
@@ -297,7 +327,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
 
       instance->peerCount++;
 
-      Serial.print("[ENP] New peer discovered: ");
+      Serial.print("[ENP] New peer: ");
       Serial.println(pkt.src);
     }
   }

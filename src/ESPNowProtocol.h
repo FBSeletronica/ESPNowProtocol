@@ -11,6 +11,8 @@
 typedef struct {
   uint8_t id;
   uint8_t mac[6];
+  unsigned long lastSeen;
+  bool active;
 } enp_peer_t;
 
 typedef void (*enp_receive_cb_t)(
@@ -68,6 +70,10 @@ private:
   bool autoDiscovery = false;
   unsigned long lastHello = 0;
   static const uint16_t HELLO_INTERVAL = 3000;
+
+  unsigned long lastHeartbeat = 0;
+  static const uint16_t HEARTBEAT_INTERVAL = 2000;
+  static const uint16_t PEER_TIMEOUT = 5000;
 
   bool isQueueEmpty();
   void pushQueue(const enp_packet_t &pkt);
