@@ -6,6 +6,13 @@
 
 #include "ESPNowTypes.h"
 
+#define ENP_MAX_PEERS 10
+
+typedef struct {
+  uint8_t id;
+  uint8_t mac[6];
+} enp_peer_t;
+
 typedef void (*enp_receive_cb_t)(
   uint8_t src,
   uint8_t id,
@@ -18,8 +25,9 @@ public:
   void begin();
   void loop();
 
-  void setPeer(const uint8_t *mac);
   void setNodeId(uint8_t id);
+
+  void addPeer(uint8_t id, const uint8_t *mac);
 
   void send(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t len);
   void sendReliable(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t len);
@@ -30,7 +38,6 @@ private:
   static void onReceiveInternal(const esp_now_recv_info_t *info, const uint8_t *data, int len);
 
   uint8_t nodeId = 0;
-  uint8_t peerAddress[6] = {0};
   uint8_t seqCounter = 0;
 
   enp_receive_cb_t receiveCallback = nullptr;
@@ -53,7 +60,12 @@ private:
   uint8_t queueTail = 0;
   bool queueFull = false;
 
+  enp_peer_t peers[ENP_MAX_PEERS];
+  uint8_t peerCount = 0;
+
   bool isQueueEmpty();
   void pushQueue(const enp_packet_t &pkt);
   bool popQueue(enp_packet_t &pkt);
+
+  const uint8_t* findPeerMac(uint8_t id);
 };

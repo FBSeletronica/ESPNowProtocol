@@ -36,6 +36,20 @@ bool ESPNowProtocol::popQueue(enp_packet_t &pkt)
 
 // --------------------------------------------------
 
+const uint8_t* ESPNowProtocol::findPeerMac(uint8_t id)
+{
+  for (int i = 0; i < peerCount; i++)
+  {
+    if (peers[i].id == id)
+    {
+      return peers[i].mac;
+    }
+  }
+  return nullptr;
+}
+
+// --------------------------------------------------
+
 void ESPNowProtocol::begin()
 {
   instance = this;
@@ -60,9 +74,12 @@ void ESPNowProtocol::setNodeId(uint8_t id)
 
 // --------------------------------------------------
 
-void ESPNowProtocol::setPeer(const uint8_t *mac)
+void ESPNowProtocol::addPeer(uint8_t id, const uint8_t *mac)
 {
-  memcpy(peerAddress, mac, 6);
+  if (peerCount >= ENP_MAX_PEERS) return;
+
+  peers[peerCount].id = id;
+  memcpy(peers[peerCount].mac, mac, 6);
 
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, mac, 6);
@@ -71,12 +88,15 @@ void ESPNowProtocol::setPeer(const uint8_t *mac)
   {
     esp_now_add_peer(&peerInfo);
   }
+
+  peerCount++;
 }
 
 // --------------------------------------------------
 
 void ESPNowProtocol::loop()
 {
+  // envio da fila
   if (!waitingAck)
   {
     enp_packet_t pkt;
@@ -85,7 +105,22 @@ void ESPNowProtocol::loop()
     {
       lastPacket = pkt;
 
-      esp_now_send(peerAddress, (uint8_t *)&lastPacket, sizeof(lastPacket));
+      // broadcast
+      if (pkt.dest == 255)
+      {
+        for (int i = 0; i < peerCount; i++)
+        {
+          esp_now_send(peers[i].mac, (uint8_t *)&lastPacket, sizeof(lastPacket));
+        }
+      }
+      else
+      {
+        const uint8_t *mac = findPeerMac(pkt.dest);
+        if (mac)
+        {
+          esp_now_send(mac, (uint8_t *)&lastPacket, sizeof(lastPacket));
+        }
+      }
 
       pendingSeq = lastPacket.seq;
       waitingAck = true;
@@ -94,6 +129,7 @@ void ESPNowProtocol::loop()
     }
   }
 
+  // retry
   if (waitingAck)
   {
     if (millis() - ackStartTime > ACK_TIMEOUT)
@@ -102,7 +138,22 @@ void ESPNowProtocol::loop()
       {
         retryCount++;
 
-        esp_now_send(peerAddress, (uint8_t *)&lastPacket, sizeof(lastPacket));
+        if (lastPacket.dest == 255)
+        {
+          for (int i = 0; i < peerCount; i++)
+          {
+            esp_now_send(peers[i].mac, (uint8_t *)&lastPacket, sizeof(lastPacket));
+          }
+        }
+        else
+        {
+          const uint8_t *mac = findPeerMac(lastPacket.dest);
+          if (mac)
+          {
+            esp_now_send(mac, (uint8_t *)&lastPacket, sizeof(lastPacket));
+          }
+        }
+
         ackStartTime = millis();
       }
       else
@@ -131,7 +182,21 @@ void ESPNowProtocol::send(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t
 
   pkt.seq = seqCounter++;
 
-  esp_now_send(peerAddress, (uint8_t *)&pkt, sizeof(pkt));
+  if (dest == 255)
+  {
+    for (int i = 0; i < peerCount; i++)
+    {
+      esp_now_send(peers[i].mac, (uint8_t *)&pkt, sizeof(pkt));
+    }
+  }
+  else
+  {
+    const uint8_t *mac = findPeerMac(dest);
+    if (mac)
+    {
+      esp_now_send(mac, (uint8_t *)&pkt, sizeof(pkt));
+    }
+  }
 }
 
 // --------------------------------------------------
@@ -168,18 +233,16 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
 {
   if (len < sizeof(enp_packet_t)) return;
 
+  if (!instance) return;
+
   enp_packet_t pkt;
   memcpy(&pkt, data, sizeof(pkt));
 
-  if (!instance) return;
-
-  // filtro por destino
+  // filtro destino
   if (pkt.dest != instance->nodeId && pkt.dest != 255)
     return;
 
-  // auto peer
-  memcpy(instance->peerAddress, info->src_addr, 6);
-
+  // auto-add peer (opcional)
   if (!esp_now_is_peer_exist(info->src_addr))
   {
     esp_now_peer_info_t peerInfo = {};
@@ -187,7 +250,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     esp_now_add_peer(&peerInfo);
   }
 
-  // ACK automático
+  // ACK
   if (pkt.type == ENP_MSG_DATA)
   {
     enp_packet_t ack = {};
@@ -200,7 +263,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     esp_now_send(info->src_addr, (uint8_t *)&ack, sizeof(ack));
   }
 
-  // Recebe ACK
+  // ACK recebido
   if (pkt.type == ENP_MSG_ACK)
   {
     if (instance->waitingAck)
@@ -212,7 +275,7 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
     }
   }
 
-  // Callback
+  // callback
   if (pkt.type == ENP_MSG_DATA)
   {
     if (instance->receiveCallback)

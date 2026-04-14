@@ -34,7 +34,7 @@ void onData(uint8_t src, uint8_t id, const uint8_t *data, uint8_t len)
     char buffer[33] = {0};
     memcpy(buffer, data, len);
 
-    Serial.print("String: ");
+    Serial.print("Message: ");
     Serial.println(buffer);
   }
 }
@@ -46,7 +46,7 @@ void setup()
   Serial.begin(115200);
 
   protocol.begin();
-  protocol.setNodeId(2); // device ID
+  protocol.setNodeId(2); // ID deste dispositivo
 
   protocol.onReceive(onData);
 
