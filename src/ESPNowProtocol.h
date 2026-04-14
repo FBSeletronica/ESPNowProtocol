@@ -16,6 +16,7 @@ public:
   void setPeer(const uint8_t *mac);
 
   void sendCommand(uint8_t cmd, int32_t value);
+  void sendReliable(uint8_t cmd, int32_t value);
 
   void onCommand(enp_command_cb_t cb);
 
@@ -26,4 +27,14 @@ private:
   uint8_t seqCounter = 0;
 
   enp_command_cb_t commandCallback = nullptr;
+
+  bool waitingAck = false;
+  uint8_t pendingSeq = 0;
+  unsigned long ackStartTime = 0;
+  uint8_t retryCount = 0;
+
+  enp_message_t lastMsg;
+
+  static const uint8_t MAX_RETRIES = 3;
+  static const uint16_t ACK_TIMEOUT = 100;
 };

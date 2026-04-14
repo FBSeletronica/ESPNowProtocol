@@ -40,7 +40,7 @@ void setup()
   protocol.begin();
   protocol.onCommand(handleCommand);
 
-  Serial.println("Robot ready");
+  Serial.println("Robot ready (ACK enabled)");
 }
 
 void loop()

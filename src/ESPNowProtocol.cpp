@@ -21,6 +21,24 @@ void ESPNowProtocol::begin()
 
 void ESPNowProtocol::loop()
 {
+  if (waitingAck)
+  {
+    if (millis() - ackStartTime > ACK_TIMEOUT)
+    {
+      if (retryCount < MAX_RETRIES)
+      {
+        retryCount++;
+
+        esp_now_send(peerAddress, (uint8_t *)&lastMsg, sizeof(lastMsg));
+
+        ackStartTime = millis();
+      }
+      else
+      {
+        waitingAck = false;
+      }
+    }
+  }
 }
 
 void ESPNowProtocol::setPeer(const uint8_t *mac)
@@ -54,6 +72,23 @@ void ESPNowProtocol::sendCommand(uint8_t cmd, int32_t value)
   esp_now_send(peerAddress, (uint8_t *)&msg, sizeof(msg));
 }
 
+void ESPNowProtocol::sendReliable(uint8_t cmd, int32_t value)
+{
+  if (waitingAck) return;
+
+  lastMsg.type = ENP_MSG_CMD;
+  lastMsg.command = cmd;
+  lastMsg.value = value;
+  lastMsg.seq = seqCounter++;
+
+  esp_now_send(peerAddress, (uint8_t *)&lastMsg, sizeof(lastMsg));
+
+  pendingSeq = lastMsg.seq;
+  waitingAck = true;
+  retryCount = 0;
+  ackStartTime = millis();
+}
+
 void ESPNowProtocol::onCommand(enp_command_cb_t cb)
 {
   commandCallback = cb;
@@ -66,6 +101,29 @@ void ESPNowProtocol::onReceive(const esp_now_recv_info_t *info, const uint8_t *d
 
   enp_message_t msg;
   memcpy(&msg, data, sizeof(msg));
+
+  if (msg.type == ENP_MSG_CMD)
+  {
+    enp_message_t ack;
+
+    ack.type = ENP_MSG_ACK;
+    ack.command = 0;
+    ack.value = 0;
+    ack.seq = msg.seq;
+
+    esp_now_send(info->src_addr, (uint8_t *)&ack, sizeof(ack));
+  }
+
+  if (msg.type == ENP_MSG_ACK)
+  {
+    if (instance && instance->waitingAck)
+    {
+      if (msg.seq == instance->pendingSeq)
+      {
+        instance->waitingAck = false;
+      }
+    }
+  }
 
   if (instance && instance->commandCallback)
   {

@@ -10,15 +10,17 @@ void setup()
 
   protocol.begin();
   protocol.setPeer(robotMAC);
+
+  Serial.println("Controller ready");
 }
 
 void loop()
 {
   protocol.loop();
 
-  protocol.sendCommand(ENP_CMD_FORWARD, 100);
+  protocol.sendReliable(ENP_CMD_FORWARD, 150);
   delay(2000);
 
-  protocol.sendCommand(ENP_CMD_STOP, 0);
+  protocol.sendReliable(ENP_CMD_STOP, 0);
   delay(2000);
 }
