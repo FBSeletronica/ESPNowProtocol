@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    # Only run when:
+    # Run only when:
     # - CI succeeded
     # - Event was push (not PR)
     # - Branch is main
@@ -31,7 +31,7 @@ jobs:
         id: release
         uses: googleapis/release-please-action@v4
         with:
-          release-type: simple
+          release-type: node
 
       - name: Update library.properties version
         if: steps.release.outputs.release_created == 'true'
