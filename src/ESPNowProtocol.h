@@ -6,7 +6,12 @@
 
 #include "ESPNowTypes.h"
 
-typedef void (*enp_receive_cb_t)(uint8_t id, const uint8_t *data, uint8_t len);
+typedef void (*enp_receive_cb_t)(
+  uint8_t src,
+  uint8_t id,
+  const uint8_t *data,
+  uint8_t len
+);
 
 class ESPNowProtocol {
 public:
@@ -14,15 +19,17 @@ public:
   void loop();
 
   void setPeer(const uint8_t *mac);
+  void setNodeId(uint8_t id);
 
-  void send(uint8_t id, const uint8_t *data, uint8_t len);
-  void sendReliable(uint8_t id, const uint8_t *data, uint8_t len);
+  void send(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t len);
+  void sendReliable(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t len);
 
   void onReceive(enp_receive_cb_t cb);
 
 private:
   static void onReceiveInternal(const esp_now_recv_info_t *info, const uint8_t *data, int len);
 
+  uint8_t nodeId = 0;
   uint8_t peerAddress[6] = {0};
   uint8_t seqCounter = 0;
 
@@ -47,8 +54,6 @@ private:
   bool queueFull = false;
 
   bool isQueueEmpty();
-  bool isQueueFull();
-
   void pushQueue(const enp_packet_t &pkt);
   bool popQueue(enp_packet_t &pkt);
 };
