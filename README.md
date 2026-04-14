@@ -215,10 +215,13 @@ Current version: v1.2.0
 - Automatic best-peer selection
 - Mesh routing (multi-hop)
 
+## License
+
+MIT License
 
 ## Contributing
 
-Contributions are welcome! This project follows a structured workflow to ensure code quality and consistency.
+Contributions are welcome! This project follows a simple and reliable workflow to ensure code quality and consistency.
 
 ---
 
@@ -235,12 +238,12 @@ Contributions are welcome! This project follows a structured workflow to ensure 
 
 1. Clone your fork:
 
-```bash
+```
 git clone https://github.com/FBSeletronica/ESPNowProtocol.git
 cd ESPNowProtocol
 ```
 
-2. Install dependencies (if needed) and ensure you have:
+2. Make sure you have:
 
 * Arduino CLI installed
 * ESP32 core installed
@@ -251,33 +254,29 @@ cd ESPNowProtocol
 
 Before submitting a Pull Request:
 
-* Ensure all examples compile successfully
+* Ensure all examples compile
 * Run Arduino Lint:
 
-```bash
-arduino-lint --compliance strict --library-manager submit
 ```
-
-* Optionally run builds manually:
-
-```bash
-arduino-cli compile --fqbn esp32:esp32:esp32 examples/basic_sender
+arduino-lint --compliance strict --library-manager submit
 ```
 
 ---
 
 ### CI Behavior
 
-* Lint runs on every commit
-* Build runs:
+This project uses GitHub Actions for validation:
 
-  * Always on Pull Requests
-  * On commits containing `[build]`
+* **Lint** runs on every commit
+* **Build** runs:
 
-If you want to force a full build:
+  * On all Pull Requests
+  * On commits containing `[build]` or `[ci]`
 
-```bash
-git commit -m "feat: improve protocol handling [build]"
+To force a full build:
+
+```
+git commit -m "fix: adjust protocol [build]"
 ```
 
 ---
@@ -286,16 +285,14 @@ git commit -m "feat: improve protocol handling [build]"
 
 This project uses **Conventional Commits**:
 
-```text
+```
 feat: add new feature
 fix: resolve bug
 docs: update documentation
+chore: maintenance tasks
 ```
 
-This enables:
-
-* Automatic versioning
-* Automatic changelog generation
+Only `feat` and `fix` should represent changes that may affect a release.
 
 ---
 
@@ -308,25 +305,34 @@ This enables:
 
 ---
 
-### Releases
+###  Releases
 
-Releases are fully automated:
+Releases are managed by the project maintainer.
 
-* Created after CI passes on `main`
-* Version and changelog are generated automatically
-* `library.properties` is updated automatically
+Contributors do **not** need to create tags or releases.
+
+When a new version is ready, the maintainer will:
+
+1. Update the version in `library.properties`
+2. Run Arduino Lint:
+
+   ```
+   arduino-lint --compliance strict --library-manager submit
+   ```
+3. Create a Git tag:
+
+   ```
+   git tag 1.0.0
+   git push origin 1.0.0
+   ```
+4. Create a release on GitHub (optional but recommended)
 
 ---
 
 ### Questions
 
-If you are unsure about anything, feel free to open an issue or discussion.
+If you have any questions, feel free to open an issue.
 
 ---
 
 Thank you for contributing!
-
-
-## License
-
-MIT License
