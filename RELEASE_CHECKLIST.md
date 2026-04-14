@@ -76,3 +76,130 @@ git push origin 1.0.0
 ### Done!
 
 Your release is now ready
+
+
+--- 
+
+# Versioning and Releases
+
+This project follows a simple and manual release process compatible with the Arduino Library Manager.
+
+---
+
+## How Releases Work
+
+Once the library is accepted into the Arduino Library Manager:
+
+* New versions are detected automatically
+* No additional submission is required
+* The system checks for new Git tags periodically
+
+---
+
+## How to Publish a New Version
+
+Follow these steps to release a new version of the library:
+
+---
+
+### 1. Make your changes
+
+Develop and test your changes as usual.
+
+---
+
+### 2. Update the version
+
+Edit the `library.properties` file:
+
+```ini id="nqmh9q"
+version=1.0.1
+```
+
+> The version must be higher than the previous one.
+
+---
+
+### 3. Validate the library
+
+Run Arduino Lint:
+
+```bash id="gq4s6p"
+arduino-lint --compliance strict --library-manager submit
+```
+
+Make sure there are no errors.
+
+---
+
+### 4. Commit the version update
+
+```bash id="x3d67g"
+git add library.properties
+git commit -m "chore: bump version to 1.0.1"
+```
+
+---
+
+### 5. Create a Git tag
+
+```bash id="0f02sf"
+git tag 1.0.1
+git push origin main
+git push origin 1.0.1
+```
+
+---
+
+### 6. Done!
+
+The Arduino Library Manager will automatically:
+
+* Detect the new tag
+* Validate the release
+* Add it to the index
+
+This usually takes a few hours.
+
+---
+
+## Important Rules
+
+* The version in `library.properties` must match the Git tag
+* Versions must always increase (no duplicates)
+* The library must remain compliant with Arduino standards
+* Invalid releases will be ignored by the indexer
+
+---
+
+## Check Release Status
+
+You can monitor the indexing process here:
+
+```
+http://downloads.arduino.cc/libraries/logs/github.com/FBSeletronica/ESPNowProtocol/
+```
+
+---
+
+## Versioning Strategy
+
+This project follows Semantic Versioning:
+
+* **Patch** (`1.0.0 → 1.0.1`): bug fixes
+* **Minor** (`1.0.0 → 1.1.0`): new features
+* **Major** (`1.0.0 → 2.0.0`): breaking changes
+
+---
+
+## Summary
+
+```
+Update version → Commit → Tag → Push → Done
+```
+
+No manual submission is needed after the first release.
+
+---
+
+Happy coding!
