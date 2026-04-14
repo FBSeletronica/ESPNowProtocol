@@ -209,6 +209,75 @@ protocol.sendReliable(2, 1, (uint8_t*)&cmd, sizeof(cmd));
 
 Current version: v1.1.0
 
+## Commit Convention
+
+This project follows the **Conventional Commits** specification to enable automatic versioning and changelog generation.
+
+### Format
+
+```
+<type>: <short description>
+```
+
+### Common Types
+
+* **feat**: A new feature (triggers a minor version bump)
+* **fix**: A bug fix (triggers a patch version bump)
+* **docs**: Documentation changes only
+* **style**: Code style changes (formatting, no logic changes)
+* **refactor**: Code changes that neither fix a bug nor add a feature
+* **perf**: Performance improvements
+* **test**: Adding or updating tests
+* **chore**: Maintenance tasks (build system, CI, etc.)
+
+---
+
+### Examples
+
+```
+feat: add ESP-NOW auto discovery
+fix: correct peer initialization bug
+docs: update README with usage instructions
+refactor: simplify packet handling logic
+```
+
+---
+
+### Breaking Changes
+
+To introduce a breaking change, add `!` after the type or include a `BREAKING CHANGE` section:
+
+```
+feat!: change API for message handling
+```
+
+or
+
+```
+feat: update communication protocol
+
+BREAKING CHANGE: message format has changed
+```
+
+---
+
+### Why this matters
+
+Using this convention allows:
+
+* Automatic versioning (SemVer)
+* Automatic changelog generation
+* Consistent and readable commit history
+
+---
+
+### Tips
+
+* Keep commits small and focused
+* Use the imperative mood ("add", not "added")
+* Write clear and concise descriptions
+
+
 ## Roadmap
 - Peer event callbacks (online/offline)
 - Link metrics (packet loss, latency)
