@@ -2,6 +2,9 @@
 
 static ESPNowProtocol* instance = nullptr;
 
+// broadcast MAC
+static const uint8_t broadcastMac[] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+
 // --------------------------------------------------
 
 bool ESPNowProtocol::isQueueEmpty()
@@ -62,6 +65,17 @@ void ESPNowProtocol::begin()
     return;
   }
 
+  // register broadcast peer
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, broadcastMac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (!esp_now_is_peer_exist(broadcastMac))
+  {
+    esp_now_add_peer(&peerInfo);
+  }
+
   esp_now_register_recv_cb(ESPNowProtocol::onReceiveInternal);
 }
 
@@ -94,6 +108,13 @@ void ESPNowProtocol::addPeer(uint8_t id, const uint8_t *mac)
 
 // --------------------------------------------------
 
+void ESPNowProtocol::enableAutoDiscovery(bool enable)
+{
+  autoDiscovery = enable;
+}
+
+// --------------------------------------------------
+
 void ESPNowProtocol::loop()
 {
   // envio da fila
@@ -105,13 +126,9 @@ void ESPNowProtocol::loop()
     {
       lastPacket = pkt;
 
-      // broadcast
       if (pkt.dest == 255)
       {
-        for (int i = 0; i < peerCount; i++)
-        {
-          esp_now_send(peers[i].mac, (uint8_t *)&lastPacket, sizeof(lastPacket));
-        }
+        esp_now_send(broadcastMac, (uint8_t *)&lastPacket, sizeof(lastPacket));
       }
       else
       {
@@ -140,10 +157,7 @@ void ESPNowProtocol::loop()
 
         if (lastPacket.dest == 255)
         {
-          for (int i = 0; i < peerCount; i++)
-          {
-            esp_now_send(peers[i].mac, (uint8_t *)&lastPacket, sizeof(lastPacket));
-          }
+          esp_now_send(broadcastMac, (uint8_t *)&lastPacket, sizeof(lastPacket));
         }
         else
         {
@@ -160,6 +174,24 @@ void ESPNowProtocol::loop()
       {
         waitingAck = false;
       }
+    }
+  }
+
+  // HELLO broadcast
+  if (autoDiscovery)
+  {
+    if (millis() - lastHello > HELLO_INTERVAL)
+    {
+      enp_packet_t pkt = {};
+
+      pkt.type = ENP_MSG_HELLO;
+      pkt.src  = nodeId;
+      pkt.dest = 255;
+      pkt.seq  = seqCounter++;
+
+      esp_now_send(broadcastMac, (uint8_t *)&pkt, sizeof(pkt));
+
+      lastHello = millis();
     }
   }
 }
@@ -184,10 +216,7 @@ void ESPNowProtocol::send(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t
 
   if (dest == 255)
   {
-    for (int i = 0; i < peerCount; i++)
-    {
-      esp_now_send(peers[i].mac, (uint8_t *)&pkt, sizeof(pkt));
-    }
+    esp_now_send(broadcastMac, (uint8_t *)&pkt, sizeof(pkt));
   }
   else
   {
@@ -232,7 +261,6 @@ void ESPNowProtocol::onReceive(enp_receive_cb_t cb)
 void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const uint8_t *data, int len)
 {
   if (len < sizeof(enp_packet_t)) return;
-
   if (!instance) return;
 
   enp_packet_t pkt;
@@ -242,12 +270,36 @@ void ESPNowProtocol::onReceiveInternal(const esp_now_recv_info_t *info, const ui
   if (pkt.dest != instance->nodeId && pkt.dest != 255)
     return;
 
-  // auto-add peer (opcional)
-  if (!esp_now_is_peer_exist(info->src_addr))
+  // HELLO → auto discovery
+  if (pkt.type == ENP_MSG_HELLO)
   {
-    esp_now_peer_info_t peerInfo = {};
-    memcpy(peerInfo.peer_addr, info->src_addr, 6);
-    esp_now_add_peer(&peerInfo);
+    if (pkt.src == instance->nodeId) return;
+
+    bool found = false;
+
+    for (int i = 0; i < instance->peerCount; i++)
+    {
+      if (instance->peers[i].id == pkt.src)
+      {
+        found = true;
+        break;
+      }
+    }
+
+    if (!found && instance->peerCount < ENP_MAX_PEERS)
+    {
+      instance->peers[instance->peerCount].id = pkt.src;
+      memcpy(instance->peers[instance->peerCount].mac, info->src_addr, 6);
+
+      esp_now_peer_info_t peerInfo = {};
+      memcpy(peerInfo.peer_addr, info->src_addr, 6);
+      esp_now_add_peer(&peerInfo);
+
+      instance->peerCount++;
+
+      Serial.print("[ENP] New peer discovered: ");
+      Serial.println(pkt.src);
+    }
   }
 
   // ACK

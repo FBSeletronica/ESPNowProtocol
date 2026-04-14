@@ -29,6 +29,8 @@ public:
 
   void addPeer(uint8_t id, const uint8_t *mac);
 
+  void enableAutoDiscovery(bool enable);
+
   void send(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t len);
   void sendReliable(uint8_t dest, uint8_t id, const uint8_t *data, uint8_t len);
 
@@ -62,6 +64,10 @@ private:
 
   enp_peer_t peers[ENP_MAX_PEERS];
   uint8_t peerCount = 0;
+
+  bool autoDiscovery = false;
+  unsigned long lastHello = 0;
+  static const uint16_t HELLO_INTERVAL = 3000;
 
   bool isQueueEmpty();
   void pushQueue(const enp_packet_t &pkt);
