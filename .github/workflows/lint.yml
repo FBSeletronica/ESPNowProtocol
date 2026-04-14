@@ -1,24 +1,68 @@
-name: Arduino Lint
+name: Arduino CI
 
 on:
   push:
   pull_request:
 
 jobs:
-  lint:
+  lint-and-build:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        fqbn:
+          - esp32:esp32:esp32
+          - esp32:esp32:esp32c3
+          - esp32:esp32:esp32s3
+          - esp32:esp32:esp32s2
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ⚡ Cache (acelera builds)
+      - name: Cache Arduino
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino
+          key: ${{ runner.os }}-arduino-${{ hashFiles('**/*.ino', '**/*.h', '**/*.cpp') }}
+
+      # 🔍 Arduino Lint
       - name: Install Arduino Lint
         run: |
           mkdir -p ~/bin
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-lint/main/etc/install.sh | BINDIR=~/bin sh
 
-      - name: Add to PATH
+      - name: Add Arduino Lint to PATH
         run: echo "$HOME/bin" >> $GITHUB_PATH
 
       - name: Run Arduino Lint
         run: arduino-lint --compliance strict --library-manager submit
+
+      # ⚙️ Arduino CLI
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Update index
+        run: arduino-cli core update-index
+
+      - name: Install ESP32 core
+        run: arduino-cli core install esp32:esp32
+
+      # 🧪 Compile examples (com logs organizados)
+      - name: Compile all examples
+        run: |
+          set -e
+
+          for d in examples/*; do
+            echo "::group::Compiling $d for ${{ matrix.fqbn }}"
+
+            arduino-cli compile \
+              --fqbn ${{ matrix.fqbn }} \
+              "$d"
+
+            echo "::endgroup::"
+          done

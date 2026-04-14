@@ -1,5 +1,7 @@
 # ESPNowProtocol
 
+![CI](https://github.com/FBSeletronica/ESPNowProtocol/actions/workflows/lint.yml/badge.svg)
+
 ESPNowProtocol is a lightweight and scalable communication layer built on top of ESP-NOW for ESP32.
 
 It provides a complete solution for device-to-device communication, including:
